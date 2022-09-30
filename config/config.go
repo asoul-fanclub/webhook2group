@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/tls"
+	"fmt"
 	"gopkg.in/ini.v1"
 	"log"
 	"os"
@@ -9,7 +11,8 @@ import (
 var Config *Configuration
 
 type Configuration struct {
-	Server *ServerConfig
+	Server    *ServerConfig
+	TLSConfig *tls.Config
 }
 
 type ServerConfig struct {
@@ -50,4 +53,22 @@ func InitConfig() error {
 	}
 
 	return nil
+}
+
+func InitTLS() {
+	cfg := &tls.Config{
+		MinVersion:       tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		},
+	}
+	cert, err := tls.LoadX509KeyPair("./server.crt", "./protocol/tls/server.key")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	cfg.Certificates = append(cfg.Certificates, cert)
+	Config.TLSConfig = cfg
 }

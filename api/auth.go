@@ -5,25 +5,37 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cloudwego/hertz/pkg/app/client"
+	"github.com/cloudwego/hertz/pkg/network/standard"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/goccy/go-json"
 	"strings"
+	"time"
 )
 
 var (
 	AccessTokenRequestURl = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
 	ATReqBody             *AccessTokenRequest
-	token                 string
+	Token                 string
+	ExpireTime            int64
 )
 
 type AccessTokenRequest struct {
 	AppId     string `json:"app_id"`
 	AppSecret string `json:"app_secret"`
+}
+
+type AccessTokenResponse struct {
+	Code              int    `json:"code"`
+	Expire            int64  `json:"expire"`
+	Msg               string `json:"msg"`
+	TenantAccessToken string `json:"tenant_access_token"`
 }
 
 // Decrypt 解密
@@ -62,7 +74,16 @@ func Decrypt(encrypt string, key string) (string, error) {
 // GetAccessToken
 // 缓存token，如果判断过期则重新获取
 func GetAccessToken() (token string, err error) {
-	c, err := client.NewClient()
+	if ExpireTime > time.Now().Unix() && Token != "" {
+		return Token, nil
+	}
+	clientCfg := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	c, err := client.NewClient(
+		client.WithTLSConfig(clientCfg),
+		client.WithDialer(standard.NewDialer()),
+	)
 	if err != nil {
 		return
 	}
@@ -71,7 +92,6 @@ func GetAccessToken() (token string, err error) {
 		protocol.ReleaseRequest(req)
 		protocol.ReleaseResponse(res)
 	}()
-	req.SetMethod(consts.MethodGet)
 	req.Header.SetContentTypeBytes([]byte("application/json"))
 	req.SetRequestURI(AccessTokenRequestURl)
 	req.SetMethod(consts.MethodPost)
@@ -86,8 +106,18 @@ func GetAccessToken() (token string, err error) {
 		return
 	}
 	token = string(res.Body())
-
+	atr := &AccessTokenResponse{}
+	err = json.Unmarshal(res.Body(), &atr)
+	if err != nil {
+		return "", err
+	}
+	if atr.Code == 0 {
+		Token = atr.TenantAccessToken
+		ExpireTime = time.Now().Unix() + atr.Expire
+	} else {
+		logger.Fatal("get access_token error")
+	}
 	fmt.Printf("%v\n", string(res.Body()))
-
-	return "", nil
+	c.CloseIdleConnections()
+	return Token, nil
 }
