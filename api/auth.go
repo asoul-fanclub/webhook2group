@@ -74,9 +74,9 @@ func Decrypt(encrypt string, key string) (string, error) {
 
 // GetAccessToken
 // 缓存token，如果判断过期则重新获取
-func GetAccessToken() (token string, err error) {
+func GetAccessToken() (err error) {
 	if ExpireTime > time.Now().Unix() && Token != "" {
-		return Token, nil
+		return nil
 	}
 	clientCfg := &tls.Config{
 		InsecureSkipVerify: true,
@@ -98,18 +98,17 @@ func GetAccessToken() (token string, err error) {
 	req.SetMethod(consts.MethodPost)
 	marshal, err := json.Marshal(*ATReqBody)
 	if err != nil {
-		return "", err
+		return err
 	}
 	req.SetBody(marshal)
 	err = c.Do(context.Background(), req, res)
 	if err != nil {
 		return
 	}
-	token = string(res.Body())
 	atr := &AccessTokenResponse{}
 	err = json.Unmarshal(res.Body(), &atr)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if atr.Code == 0 {
 		Token = atr.TenantAccessToken
@@ -119,5 +118,5 @@ func GetAccessToken() (token string, err error) {
 	}
 	fmt.Printf("%v\n", string(res.Body()))
 	c.CloseIdleConnections()
-	return Token, nil
+	return nil
 }

@@ -36,11 +36,10 @@ func StartCheck(c *app.RequestContext) {
 		return
 	}
 	// done: get access_token
-	token1, err := GetAccessToken()
-	if err != nil {
+
+	if err := GetAccessToken(); err != nil {
 		logger.Warn(err.Error())
 	}
-	fmt.Println(token1)
 
 	secret := config.Config.Server.Secret
 	if secret != "" {
@@ -100,7 +99,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		fmt.Println(h.PullRequest, h.Number, h.Repository)
-		go startCheckPR(&h)
+		go startCheckPR(&h, token, chat)
 		c.JSON(http.StatusCreated, localMsg{"created"})
 	case PullRequestAssign:
 		fmt.Println(PullRequestAssign)
@@ -115,7 +114,8 @@ func StartCheck(c *app.RequestContext) {
 	}
 }
 
-func startCheckPR(h *model.PRHook) {
+// 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
+func startCheckPR(h *model.PRHook, token, chat string) {
 	// record all relevant persons
 	dir := make(map[string]bool)
 	dir[h.Sender.Email] = true
