@@ -24,7 +24,7 @@ func StartCheck(c *app.RequestContext) {
 		return
 	}
 
-	// get token and chat_key
+	// get robot-webhook token and chat_key
 	token := c.Param("token")
 	chat := c.Param("chat")
 	fmt.Println(token, chat)
