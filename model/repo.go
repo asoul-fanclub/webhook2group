@@ -27,10 +27,6 @@ func (r *Repository) DataDir(base string) string {
 	return base + r.Name
 }
 
-type User struct {
-	Login string `json:"login"`
-}
-
 type Commit struct {
 	SHA     string `json:"id"`
 	Message string `json:"message"`

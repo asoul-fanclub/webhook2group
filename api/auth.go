@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	AccessTokenRequestURl = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-	ATReqBody             *AccessTokenRequest
-	Token                 string
-	ExpireTime            int64
+	AccessTokenRequestURl   = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+	AccessTokenHeaderPrefix = "Bearer "
+	ATReqBody               *AccessTokenRequest
+	Token                   string
+	ExpireTime              int64
 )
 
 type AccessTokenRequest struct {
@@ -99,7 +100,6 @@ func GetAccessToken() (token string, err error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(marshal)
 	req.SetBody(marshal)
 	err = c.Do(context.Background(), req, res)
 	if err != nil {

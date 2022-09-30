@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
@@ -25,17 +24,12 @@ func main() {
 		AppSecret: config.Config.Server.AppSecret,
 	}
 	config.InitTLS()
+	api.UserIdDir = make(map[string]int)
+
 	h := server.Default(
 		server.WithHostPorts(config.Config.Server.Host))
-	h.Use(func(c context.Context, ctx *app.RequestContext) {
-		fmt.Fprint(ctx, "Before real handle...\n")
-		ctx.Next(c)
-		fmt.Fprint(ctx, "After real handle...\n")
-	})
 	h.POST("/webhook/:token/:chat", func(c context.Context, ctx *app.RequestContext) {
 		api.StartCheck(ctx)
-
-		// todo: using chat_key, parse data of gitea, try to get group_user_id
 
 		// todo: solve response data, and send to webhook-robot
 	})

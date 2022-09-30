@@ -14,6 +14,10 @@ import (
 	"webhook2group/model"
 )
 
+var (
+	UserIdDir map[string]int
+)
+
 type localMsg struct {
 	Msg string `json:"message"`
 }
@@ -27,7 +31,6 @@ func StartCheck(c *app.RequestContext) {
 	// get robot-webhook token and chat_key
 	token := c.Param("token")
 	chat := c.Param("chat")
-	fmt.Println(token, chat)
 	if token == "" || chat == "" {
 		c.JSON(http.StatusBadRequest, localMsg{"missing path params"})
 		return
@@ -42,7 +45,7 @@ func StartCheck(c *app.RequestContext) {
 	secret := config.Config.Server.Secret
 	if secret != "" {
 		sigRaw := c.GetHeader(GiteaSignature)
-		if len(sigRaw) != 1 {
+		if len(sigRaw) == 0 {
 			c.JSON(http.StatusBadRequest, localMsg{"bad secret header"})
 			return
 		}
@@ -96,8 +99,8 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		fmt.Println(h)
-		//go startCheckPR(&h)
+		fmt.Println(h.PullRequest, h.Number, h.Repository)
+		go startCheckPR(&h)
 		c.JSON(http.StatusCreated, localMsg{"created"})
 	case PullRequestAssign:
 		fmt.Println(PullRequestAssign)
@@ -110,4 +113,16 @@ func StartCheck(c *app.RequestContext) {
 	default:
 		c.JSON(404, localMsg{"event not supported"})
 	}
+}
+
+func startCheckPR(h *model.PRHook) {
+	// record all relevant persons
+	dir := make(map[string]bool)
+	dir[h.Sender.Email] = true
+	dir[h.PullRequest.User.Email] = true
+	for _, v := range h.PullRequest.Assignees {
+		dir[v.Email] = true
+	}
+	// get user_id
+
 }
