@@ -11,6 +11,8 @@ type PRHook struct {
 type PullRequest struct {
 	Number    int64   `json:"number"`
 	Title     string  `json:"title"`
+	Url       string  `json:"url"`
+	Body      string  `json:"body"`
 	Base      *Branch `json:"base"`
 	Head      *Branch `json:"head"`
 	User      *User   `json:"user"`

@@ -1,66 +1,83 @@
 package api
 
+import (
+	"fmt"
+	"github.com/goccy/go-json"
+)
+
+const (
+	PostSendMsgRequestURL = "https://open.feishu.cn/open-apis/im/v1/messages"
+	PostSendParamKey      = "receive_id_type"
+	PostSendChatType      = "chat_id"
+)
+
 type PostMessage struct {
-	MsgType MsgType     `json:"msg_type"`
-	Content PostContent `json:"content"`
+	ReceiveId string  `json:"receive_id"`
+	MsgType   MsgType `json:"msg_type"`
+	Content1  PostBody
+	Content   string `json:"content"`
 }
 
 func NewPostMessage() *PostMessage {
-	return &PostMessage{}
+	p := &PostMessage{}
+	p.MsgType = MsgTypePost
+	return p
 }
 
 func (m *PostMessage) Body() map[string]interface{} {
-	m.MsgType = MsgTypePost
+	n := structToMap(m.Content1)
+	body, err := json.Marshal(n)
+	if err != nil {
+		fmt.Printf("%v", err.Error())
+		return nil
+	}
+	m.Content = string(body)
 	return structToMap(m)
 }
 
 func (m *PostMessage) SetZH(u PostUnit) *PostMessage {
-	m.Content.Post.ZH = u
+	m.Content1.ZH = u
 	return m
 }
 
 func (m *PostMessage) SetZHTitle(t string) *PostMessage {
-	m.Content.Post.ZH.Title = t
+	m.Content1.ZH.Title = t
 	return m
 }
 
 func (m *PostMessage) AppendZHContent(i []PostItem) *PostMessage {
-	m.Content.Post.ZH.Content = append(m.Content.Post.ZH.Content, i)
+	m.Content1.ZH.Content = append(m.Content1.ZH.Content, i)
 	return m
 }
 
 func (m *PostMessage) SetJA(u PostUnit) *PostMessage {
-	m.Content.Post.JA = u
+	m.Content1.JA = u
 	return m
 }
 
 func (m *PostMessage) SetJATitle(t string) *PostMessage {
-	m.Content.Post.JA.Title = t
+	m.Content1.JA.Title = t
 	return m
 }
 
 func (m *PostMessage) AppendJAContent(i []PostItem) *PostMessage {
-	m.Content.Post.JA.Content = append(m.Content.Post.JA.Content, i)
+	m.Content1.JA.Content = append(m.Content1.JA.Content, i)
 	return m
 }
 
 func (m *PostMessage) SetEN(u PostUnit) *PostMessage {
-	m.Content.Post.EN = u
+	m.Content1.EN = u
 	return m
 }
 
 func (m *PostMessage) SetENTitle(t string) *PostMessage {
-	m.Content.Post.EN.Title = t
+	m.Content1.EN.Title = t
 	return m
 }
 
 func (m *PostMessage) AppendENContent(i []PostItem) *PostMessage {
-	m.Content.Post.EN.Content = append(m.Content.Post.EN.Content, i)
+	m.Content1.EN.Content = append(m.Content1.EN.Content, i)
 	return m
-}
-
-type PostContent struct {
-	Post PostBody `json:"post"`
 }
 
 type PostBody struct {

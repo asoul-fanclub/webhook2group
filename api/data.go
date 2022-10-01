@@ -1,6 +1,6 @@
 package api
 
-var (
+const (
 	GiteaHeaderEventType = "X-Gitea-Event-Type"
 	Push                 = "push"
 	PullRequestAssign    = "pull_request_assign"

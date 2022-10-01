@@ -28,10 +28,8 @@ func main() {
 
 	h := server.Default(
 		server.WithHostPorts(config.Config.Server.Host))
-	h.POST("/webhook/:token/:chat", func(c context.Context, ctx *app.RequestContext) {
+	h.POST("/webhook/:chat", func(c context.Context, ctx *app.RequestContext) {
 		api.StartCheck(ctx)
-
-		// todo: solve response data, and send to webhook-robot
 	})
 
 	h.GET("/ping", func(c context.Context, ctx *app.RequestContext) {

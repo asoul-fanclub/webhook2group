@@ -19,12 +19,17 @@ import (
 	"time"
 )
 
-var (
+const (
 	AccessTokenRequestURl   = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+	UserIdRequestURl        = "https://open.feishu.cn/open-apis/user/v1/batch_get_id"
 	AccessTokenHeaderPrefix = "Bearer "
-	ATReqBody               *AccessTokenRequest
-	Token                   string
-	ExpireTime              int64
+	AccessTokenHeaderKey    = "Authorization"
+)
+
+var (
+	ATReqBody  *AccessTokenRequest
+	Token      string
+	ExpireTime int64
 )
 
 type AccessTokenRequest struct {
