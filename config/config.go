@@ -65,7 +65,7 @@ func InitTLS() {
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 		},
 	}
-	cert, err := tls.LoadX509KeyPair("./server.crt", "./protocol/tls/server.key")
+	cert, err := tls.LoadX509KeyPair("./server.crt", "./server.key")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
