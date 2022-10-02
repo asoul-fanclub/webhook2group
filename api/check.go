@@ -263,7 +263,7 @@ func getUserId(emails map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	if resp.Data != nil {
+	if resp.Data != nil && resp.Data["email_users"] != nil {
 		v := resp.Data["email_users"].(map[string]interface{})
 		for kk, vv := range v {
 			vk := vv.([]interface{})
@@ -321,20 +321,25 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 func solvePushData(h *model.RepoHook) *PostMessage {
 	p := NewPostMessage()
 	var line []PostItem
+	var at AT
 	a := NewA("[Push-"+h.Repository.Name+"]", h.CompareUrl)
 	line = append(line, a)
 	tx := NewText("\n(Head [" + h.Ref + "])\n")
 	line = append(line, tx)
 	t := NewText("Push By ")
 	line = append(line, t)
-	id, _ := UserIdDir.Load(h.Pusher.Email)
-	at := NewAT(id.(string))
-	line = append(line, at)
+	id, ok := UserIdDir.Load(h.Pusher.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	}
 	t = NewText("\nOperator: ")
 	line = append(line, t)
-	id, _ = UserIdDir.Load(h.Sender.Email)
-	at = NewAT(id.(string))
-	line = append(line, at)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	}
 	if h.HeadCommit.Message != "" {
 		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
 			h.HeadCommit.Message +
