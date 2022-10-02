@@ -125,6 +125,12 @@ func StartCheck(c *app.RequestContext) {
 		fmt.Println(IssueComment)
 	case Issues:
 		fmt.Println(Issues)
+	case PullRequestComment:
+		fmt.Println(PullRequestComment)
+	case PullRequestRejected:
+		fmt.Println(PullRequestRejected)
+	case PullRequestApproved:
+		fmt.Println(PullRequestApproved)
 	case IssuesAssign:
 		fmt.Println(IssuesAssign)
 	default:
@@ -143,9 +149,12 @@ func startCheckPR(h *model.PRHook, chat string) {
 	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	ids := getUserId(dir)
+	err := getUserId(dir)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
 	// solve data
-	msg := solvePullRequestData(h, ids)
+	msg := solvePullRequestData(h)
 	msg.ReceiveId = chat
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
@@ -163,25 +172,27 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	ids := getUserId(dir)
+	err := getUserId(dir)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
 	// solve data
-	msg := solvePullRequestData(h, ids)
+	msg := solvePullRequestData(h)
 	msg.ReceiveId = chat
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
 	_, _, _ = Send(msg)
+	fmt.Println(1)
 }
 
-func getUserId(emails map[string]bool) []string {
-	ids := make([]string, 0)
+func getUserId(emails map[string]bool) error {
 	for k, _ := range emails {
-		if vv, ok := UserIdDir.Load(k); ok {
-			ids = append(ids, vv.(string))
+		if _, ok := UserIdDir.Load(k); ok {
 			delete(emails, k)
 		}
 	}
 	if emails == nil || len(emails) == 0 {
-		return ids
+		return nil
 	}
 	clientCfg := &tls.Config{
 		InsecureSkipVerify: true,
@@ -191,7 +202,7 @@ func getUserId(emails map[string]bool) []string {
 		client.WithDialer(standard.NewDialer()),
 	)
 	if err != nil {
-		return nil
+		return err
 	}
 	req, res := protocol.AcquireRequest(), protocol.AcquireResponse()
 	defer func() {
@@ -214,13 +225,13 @@ func getUserId(emails map[string]bool) []string {
 	req.SetMethod(consts.MethodGet)
 	err = c.Do(context.Background(), req, res)
 	if err != nil {
-		return nil
+		return err
 	}
 	c.CloseIdleConnections()
 	resp := &Response{}
 	err = json.Unmarshal(res.Body(), &resp)
 	if err != nil {
-		return nil
+		return err
 	}
 	if resp.Data != nil {
 		fmt.Println(resp.Data)
@@ -230,14 +241,13 @@ func getUserId(emails map[string]bool) []string {
 			if len(vk) > 0 {
 				id := vk[0].(map[string]interface{})["user_id"].(string)
 				UserIdDir.Store(kk, id)
-				ids = append(ids, id)
 			}
 		}
 	}
-	return ids
+	return nil
 }
 
-func solvePullRequestData(h *model.PRHook, ids []string) *PostMessage {
+func solvePullRequestData(h *model.PRHook) *PostMessage {
 	p := NewPostMessage()
 	var line []PostItem
 	if h.Action == "closed" {
@@ -247,12 +257,30 @@ func solvePullRequestData(h *model.PRHook, ids []string) *PostMessage {
 	}
 	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
 	line = append(line, a)
-	tx := "\n" + "(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n"
-	t := NewText(tx + h.PullRequest.Body)
+	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n")
+	line = append(line, tx)
+	t := NewText("PullRequest By ")
 	line = append(line, t)
-	for _, v := range ids {
-		at := NewAT(v)
-		line = append(line, at)
+	id, _ := UserIdDir.Load(h.PullRequest.User.Email)
+	at := NewAT(id.(string))
+	line = append(line, at)
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, _ = UserIdDir.Load(h.Sender.Email)
+	at = NewAT(id.(string))
+	line = append(line, at)
+	if h.PullRequest.Body != "" {
+		t = NewText("\nContent: " + h.PullRequest.Body + "\n")
+		line = append(line, t)
+	}
+	if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
+		t = NewText("Assignees: ")
+		line = append(line, t)
+		for _, v := range h.PullRequest.Assignees {
+			id, _ = UserIdDir.Load(v.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+		}
 	}
 	p.AppendZHContent(line)
 	p.SetZHTitle(h.PullRequest.Title)
