@@ -17,6 +17,7 @@ type PullRequest struct {
 	Head      *Branch `json:"head"`
 	User      *User   `json:"user"`
 	Assignees []*User `json:"assignees"`
+	Merged    bool    `json:"merged"`
 }
 
 type Branch struct {

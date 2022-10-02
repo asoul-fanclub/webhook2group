@@ -80,6 +80,7 @@ func Decrypt(encrypt string, key string) (string, error) {
 // GetAccessToken
 // 缓存token，如果判断过期则重新获取
 func GetAccessToken() (err error) {
+	// get from cache
 	if ExpireTime > time.Now().Unix() && Token != "" {
 		return nil
 	}
@@ -121,7 +122,6 @@ func GetAccessToken() (err error) {
 	} else {
 		logger.Fatal("get access_token error")
 	}
-	fmt.Printf("%v\n", string(res.Body()))
 	c.CloseIdleConnections()
 	return nil
 }

@@ -18,12 +18,14 @@ import (
 	"github.com/goccy/go-json"
 	"io"
 	"net/http"
+	"strconv"
+	"sync"
 	"webhook2group/config"
 	"webhook2group/model"
 )
 
 var (
-	UserIdDir map[string]int
+	UserIdDir sync.Map
 )
 
 type localMsg struct {
@@ -139,13 +141,9 @@ func startCheckPR(h *model.PRHook, chat string) {
 	for _, v := range h.PullRequest.Assignees {
 		dir[v.Email] = true
 	}
-	emails := make([]string, 0)
-	for k, _ := range dir {
-		emails = append(emails, k)
-	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	ids := getUserId(emails)
+	ids := getUserId(dir)
 	// solve data
 	msg := solvePullRequestData(h, ids)
 	msg.ReceiveId = chat
@@ -163,13 +161,9 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	for _, v := range h.PullRequest.Assignees {
 		dir[v.Email] = true
 	}
-	emails := make([]string, 0)
-	for k, _ := range dir {
-		emails = append(emails, k)
-	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	ids := getUserId(emails)
+	ids := getUserId(dir)
 	// solve data
 	msg := solvePullRequestData(h, ids)
 	msg.ReceiveId = chat
@@ -178,8 +172,17 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-func getUserId(emails []string) []string {
+func getUserId(emails map[string]bool) []string {
 	ids := make([]string, 0)
+	for k, _ := range emails {
+		if vv, ok := UserIdDir.Load(k); ok {
+			ids = append(ids, vv.(string))
+			delete(emails, k)
+		}
+	}
+	if emails == nil || len(emails) == 0 {
+		return ids
+	}
 	clientCfg := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -199,12 +202,12 @@ func getUserId(emails []string) []string {
 	req.Header.SetContentTypeBytes([]byte("application/json; charset=utf-8"))
 	reqUrI := UserIdRequestURl + "?"
 	flag := true
-	for _, v := range emails {
+	for k, _ := range emails {
 		if flag {
-			reqUrI = reqUrI + "emails=" + v
+			reqUrI = reqUrI + "emails=" + k
 			flag = false
 		} else {
-			reqUrI = reqUrI + "&emails=" + v
+			reqUrI = reqUrI + "&emails=" + k
 		}
 	}
 	req.SetRequestURI(reqUrI)
@@ -220,11 +223,14 @@ func getUserId(emails []string) []string {
 		return nil
 	}
 	if resp.Data != nil {
+		fmt.Println(resp.Data)
 		v := resp.Data["email_users"].(map[string]interface{})
-		for _, vv := range v {
+		for kk, vv := range v {
 			vk := vv.([]interface{})
 			if len(vk) > 0 {
-				ids = append(ids, vk[0].(map[string]interface{})["user_id"].(string))
+				id := vk[0].(map[string]interface{})["user_id"].(string)
+				UserIdDir.Store(kk, id)
+				ids = append(ids, id)
 			}
 		}
 	}
@@ -234,9 +240,14 @@ func getUserId(emails []string) []string {
 func solvePullRequestData(h *model.PRHook, ids []string) *PostMessage {
 	p := NewPostMessage()
 	var line []PostItem
-	a := NewA("[PullRequest-"+h.Repository.Name+"] action: "+h.Action, h.PullRequest.Url)
+	if h.Action == "closed" {
+		if h.PullRequest.Merged {
+			h.Action = "merged"
+		}
+	}
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
 	line = append(line, a)
-	tx := "\n" + "(base " + h.PullRequest.Head.Ref + " merge to " + h.PullRequest.Base.Ref + ")\n"
+	tx := "\n" + "(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n"
 	t := NewText(tx + h.PullRequest.Body)
 	line = append(line, t)
 	for _, v := range ids {

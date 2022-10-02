@@ -7,6 +7,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"log"
+	"sync"
 	"webhook2group/api"
 	"webhook2group/config"
 )
@@ -25,7 +26,7 @@ func main() {
 		AppSecret: config.Config.Server.AppSecret,
 	}
 	// 缓存用户email-id
-	api.UserIdDir = make(map[string]int)
+	api.UserIdDir = sync.Map{}
 	// 启动webserver
 	h := server.Default(
 		server.WithHostPorts(config.Config.Server.Host))
