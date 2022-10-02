@@ -100,7 +100,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		//go startCheckPush(&h)
+		go startCheckPush(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{Push})
 	case PullRequest:
 		var h model.PRHook
@@ -133,16 +133,18 @@ func StartCheck(c *app.RequestContext) {
 		fmt.Println(PullRequestApproved)
 	case IssuesAssign:
 		fmt.Println(IssuesAssign)
+	case BranchCreate:
+		fmt.Println(BranchCreate)
 	default:
 		c.JSON(404, localMsg{"event not supported"})
 	}
 }
 
-// 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
+// 处理gitea传来的数据，并向对应的group发送消息
 func startCheckPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	err := getUserId(h)
+	err := getUserIdWithPRHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
 	}
@@ -154,11 +156,11 @@ func startCheckPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
+// 处理gitea传来的数据，并向对应的group发送消息
 func startCheckAssignPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	err := getUserId(h)
+	err := getUserIdWithPRHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
 	}
@@ -170,7 +172,23 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-func getUserId(h *model.PRHook) error {
+// 处理gitea传来的数据，并向对应的group发送消息
+func startCheckPush(h *model.RepoHook, chat string) {
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	err := getUserIdWithRepoHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	// solve data
+	msg := solvePushData(h)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+func getUserIdWithPRHook(h *model.PRHook) error {
 	// record all relevant persons
 	emails := make(map[string]bool)
 	if _, ok := UserIdDir.Load(h.Sender.Email); !ok {
@@ -184,6 +202,25 @@ func getUserId(h *model.PRHook) error {
 			emails[v.Email] = true
 		}
 	}
+	return getUserId(emails)
+}
+
+func getUserIdWithRepoHook(h *model.RepoHook) error {
+	// record all relevant persons
+	emails := make(map[string]bool)
+	if _, ok := UserIdDir.Load(h.HeadCommit.Author.Email); !ok {
+		emails[h.HeadCommit.Author.Email] = true
+	}
+	if _, ok := UserIdDir.Load(h.HeadCommit.Committer.Email); !ok {
+		emails[h.HeadCommit.Committer.Email] = true
+	}
+	if _, ok := UserIdDir.Load(h.Pusher.Email); !ok {
+		emails[h.Pusher.Email] = true
+	}
+	return getUserId(emails)
+}
+
+func getUserId(emails map[string]bool) error {
 	if emails == nil || len(emails) == 0 {
 		return nil
 	}
@@ -262,7 +299,9 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 	at = NewAT(id.(string))
 	line = append(line, at)
 	if h.PullRequest.Body != "" {
-		t = NewText("\nContent: " + h.PullRequest.Body + "\n")
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.PullRequest.Body +
+			"\n--------------------------------------------------------------\n")
 		line = append(line, t)
 	}
 	if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
@@ -276,6 +315,34 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 	}
 	p.AppendZHContent(line)
 	p.SetZHTitle(h.PullRequest.Title)
+	return p
+}
+
+func solvePushData(h *model.RepoHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	a := NewA("[Push-"+h.Repository.Name+"]", h.CompareUrl)
+	line = append(line, a)
+	tx := NewText("\n(Head [" + h.Ref + "])\n")
+	line = append(line, tx)
+	t := NewText("Push By ")
+	line = append(line, t)
+	id, _ := UserIdDir.Load(h.Pusher.Email)
+	at := NewAT(id.(string))
+	line = append(line, at)
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, _ = UserIdDir.Load(h.Sender.Email)
+	at = NewAT(id.(string))
+	line = append(line, at)
+	if h.HeadCommit.Message != "" {
+		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
+			h.HeadCommit.Message +
+			"\n--------------------------------------------------------------\n")
+		line = append(line, t)
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle("")
 	return p
 }
 

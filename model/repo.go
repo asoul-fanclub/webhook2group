@@ -4,8 +4,11 @@ import "strings"
 
 type RepoHook struct {
 	Ref        string      `json:"ref"`
+	CompareUrl string      `json:"compare_url"`
 	HeadCommit *Commit     `json:"head_commit"`
 	Repository *Repository `json:"repository"`
+	Pusher     *User       `json:"pusher"`
+	Sender     *User       `json:"sender"`
 }
 
 type Repository struct {
@@ -28,6 +31,8 @@ func (r *Repository) DataDir(base string) string {
 }
 
 type Commit struct {
-	SHA     string `json:"id"`
-	Message string `json:"message"`
+	SHA       string `json:"id"`
+	Message   string `json:"message"`
+	Author    *User  `json:"author"`
+	Committer *User  `json:"committer"`
 }
