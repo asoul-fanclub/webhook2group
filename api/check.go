@@ -279,6 +279,7 @@ func getUserId(emails map[string]bool) error {
 func solvePullRequestData(h *model.PRHook) *PostMessage {
 	p := NewPostMessage()
 	var line []PostItem
+	var at AT
 	if h.Action == "closed" {
 		if h.PullRequest.Merged {
 			h.Action = "merged"
@@ -290,14 +291,34 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 	line = append(line, tx)
 	t := NewText("PullRequest By ")
 	line = append(line, t)
-	id, _ := UserIdDir.Load(h.PullRequest.User.Email)
-	at := NewAT(id.(string))
-	line = append(line, at)
+	id, ok := UserIdDir.Load(h.PullRequest.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.PullRequest.User.FullName == "" {
+			t = NewText(h.PullRequest.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.PullRequest.User.FullName)
+			line = append(line, t)
+		}
+	}
 	t = NewText("\nOperator: ")
 	line = append(line, t)
-	id, _ = UserIdDir.Load(h.Sender.Email)
-	at = NewAT(id.(string))
-	line = append(line, at)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
@@ -308,9 +329,19 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 		t = NewText("Assignees: ")
 		line = append(line, t)
 		for _, v := range h.PullRequest.Assignees {
-			id, _ = UserIdDir.Load(v.Email)
-			at = NewAT(id.(string))
-			line = append(line, at)
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
 		}
 	}
 	p.AppendZHContent(line)
@@ -332,6 +363,14 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 	if ok {
 		at = NewAT(id.(string))
 		line = append(line, at)
+	} else {
+		if h.Pusher.FullName == "" {
+			t = NewText(h.Pusher.FullName)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Pusher.FullName)
+			line = append(line, t)
+		}
 	}
 	t = NewText("\nOperator: ")
 	line = append(line, t)
@@ -339,6 +378,14 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 	if ok {
 		at = NewAT(id.(string))
 		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
 	}
 	if h.HeadCommit.Message != "" {
 		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
@@ -354,20 +401,44 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 	p := NewPostMessage()
 	var line []PostItem
+	var id any
+	var t Text
+	var at AT
 	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
 	line = append(line, a)
 	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n")
 	line = append(line, tx)
-	t := NewText("PullRequest By ")
+	t = NewText("PullRequest By ")
 	line = append(line, t)
-	id, _ := UserIdDir.Load(h.PullRequest.User.Email)
-	at := NewAT(id.(string))
-	line = append(line, at)
+	id, ok := UserIdDir.Load(h.PullRequest.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.PullRequest.User.FullName == "" {
+			t = NewText(h.PullRequest.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.PullRequest.User.FullName)
+			line = append(line, t)
+		}
+	}
 	t = NewText("\nOperator: ")
 	line = append(line, t)
-	id, _ = UserIdDir.Load(h.Sender.Email)
-	at = NewAT(id.(string))
-	line = append(line, at)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
@@ -381,9 +452,19 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			line = append(line, at)
 			t = NewText("assign this PR to you")
 			line = append(line, t)
-			id, _ = UserIdDir.Load(h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].Email)
-			at = NewAT(id.(string))
-			line = append(line, at)
+			id, ok = UserIdDir.Load(h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].FullName == "" {
+					t = NewText(h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].Username)
+					line = append(line, t)
+				} else {
+					t = NewText(h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].FullName)
+					line = append(line, t)
+				}
+			}
 			t = NewText(", plz take a look")
 			line = append(line, t)
 		}
