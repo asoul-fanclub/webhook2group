@@ -30,13 +30,15 @@ type localMsg struct {
 	Msg string `json:"message"`
 }
 
+// StartCheck 根据event_type分发请求
 func StartCheck(c *app.RequestContext) {
+	// missing event_type
 	if c.GetHeader(GiteaHeaderEventType) == nil || len(c.GetHeader(GiteaHeaderEventType)) == 0 {
 		c.JSON(http.StatusNotFound, localMsg{"missing header"})
 		return
 	}
 
-	// get chat_key
+	// get chat_id
 	chat := c.Param("chat")
 	if chat == "" {
 		c.JSON(http.StatusBadRequest, localMsg{"missing path params"})
@@ -44,9 +46,10 @@ func StartCheck(c *app.RequestContext) {
 	}
 	// done: get access_token
 	if err := GetAccessToken(); err != nil {
-		logger.Warn(err.Error())
+		logger.Fatalf("%v", err.Error())
 	}
 
+	// todo: verify Secret(Gitea)
 	secret := config.Config.Server.Secret
 	if secret != "" {
 		sigRaw := c.GetHeader(GiteaSignature)
@@ -86,6 +89,7 @@ func StartCheck(c *app.RequestContext) {
 
 	}
 
+	// assign request
 	switch string(c.GetHeader(GiteaHeaderEventType)) {
 	case Push:
 		// push into repository or branch created
@@ -95,6 +99,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		//go startCheckPush(&h)
+		c.JSON(http.StatusCreated, localMsg{Push})
 	case PullRequest:
 		var h model.PRHook
 
@@ -102,6 +107,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
+		// solve the PR request
 		go startCheckPR(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{PullRequest})
 	case PullRequestAssign:
@@ -111,7 +117,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckPR(&h, chat)
+		go startCheckAssignPR(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{PullRequestAssign})
 	case IssueComment:
 		fmt.Println(IssueComment)
@@ -126,6 +132,30 @@ func StartCheck(c *app.RequestContext) {
 
 // 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
 func startCheckPR(h *model.PRHook, chat string) {
+	// record all relevant persons
+	dir := make(map[string]bool)
+	dir[h.Sender.Email] = true
+	dir[h.PullRequest.User.Email] = true
+	for _, v := range h.PullRequest.Assignees {
+		dir[v.Email] = true
+	}
+	emails := make([]string, 0)
+	for k, _ := range dir {
+		emails = append(emails, k)
+	}
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	ids := getUserId(emails)
+	// solve data
+	msg := solvePullRequestData(h, ids)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+// 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
+func startCheckAssignPR(h *model.PRHook, chat string) {
 	// record all relevant persons
 	dir := make(map[string]bool)
 	dir[h.Sender.Email] = true

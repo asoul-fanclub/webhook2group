@@ -2,7 +2,6 @@ package config
 
 import (
 	"crypto/tls"
-	"fmt"
 	"gopkg.in/ini.v1"
 	"log"
 	"os"
@@ -36,7 +35,8 @@ func InitConfig() error {
 	}
 
 	s := &ServerConfig{
-		Host:      "192.168.200.131:8001",
+		// default config
+		Host:      "127.0.0.1:8001",
 		DebugMode: false,
 	}
 	err = cfg.Section("server").MapTo(s)
@@ -45,17 +45,17 @@ func InitConfig() error {
 	}
 
 	if s.AppId == "" || s.AppSecret == "" {
-		log.Fatalln("missing app_id or app_secret")
+		log.Fatalf("%v", "missing app_id or app_secret")
 	}
-
+	tlsCfg := InitTLS()
 	Config = &Configuration{
-		Server: s,
+		Server:    s,
+		TLSConfig: tlsCfg,
 	}
-
 	return nil
 }
 
-func InitTLS() {
+func InitTLS() *tls.Config {
 	cfg := &tls.Config{
 		MinVersion:       tls.VersionTLS12,
 		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
@@ -67,8 +67,8 @@ func InitTLS() {
 	}
 	cert, err := tls.LoadX509KeyPair("./server.crt", "./server.key")
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatalf("%v", err.Error())
 	}
 	cfg.Certificates = append(cfg.Certificates, cert)
-	Config.TLSConfig = cfg
+	return cfg
 }

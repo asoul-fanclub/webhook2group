@@ -11,23 +11,25 @@ import (
 	"webhook2group/config"
 )
 
-// 1. 如果access_token过期，发起请求获取access_token。path参数携带自定义机器人token，后面拼接在url中其调用webhook-robot。
-// 2. 整个程序的作用是获取gitea的数据，进行解析获取email，路径中携带机器人token以及chat_group_id。获取group下的id。
-//    进行缓存，然后插入@标签，调用webhook-robot向对应组发送信息
+// 1. 如果access_token过期，发起请求获取access_token。其中webhook请求path参数携带chat_id
+// 2. 整个程序的作用是获取gitea的数据，进行解析获取email，路径中携带chat_id。根据email获取group下的id，结合@群组成员发送消息
 
 func main() {
+	// 初始化配置文件
 	if err := config.InitConfig(); err != nil {
 		log.Fatal(err)
 	}
+	// 设定自建应用信息
 	api.ATReqBody = &api.AccessTokenRequest{
 		AppId:     config.Config.Server.AppId,
 		AppSecret: config.Config.Server.AppSecret,
 	}
-	config.InitTLS()
+	// 缓存用户email-id
 	api.UserIdDir = make(map[string]int)
-
+	// 启动webserver
 	h := server.Default(
 		server.WithHostPorts(config.Config.Server.Host))
+	// webhook api
 	h.POST("/webhook/:chat", func(c context.Context, ctx *app.RequestContext) {
 		api.StartCheck(ctx)
 	})
