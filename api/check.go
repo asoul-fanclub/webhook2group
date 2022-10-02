@@ -140,16 +140,9 @@ func StartCheck(c *app.RequestContext) {
 
 // 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
 func startCheckPR(h *model.PRHook, chat string) {
-	// record all relevant persons
-	dir := make(map[string]bool)
-	dir[h.Sender.Email] = true
-	dir[h.PullRequest.User.Email] = true
-	for _, v := range h.PullRequest.Assignees {
-		dir[v.Email] = true
-	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	err := getUserId(dir)
+	err := getUserId(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
 	}
@@ -163,16 +156,9 @@ func startCheckPR(h *model.PRHook, chat string) {
 
 // 处理gitea传来的数据，并使用robot-webhook向对应的group发送消息
 func startCheckAssignPR(h *model.PRHook, chat string) {
-	// record all relevant persons
-	dir := make(map[string]bool)
-	dir[h.Sender.Email] = true
-	dir[h.PullRequest.User.Email] = true
-	for _, v := range h.PullRequest.Assignees {
-		dir[v.Email] = true
-	}
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
-	err := getUserId(dir)
+	err := getUserId(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
 	}
@@ -184,10 +170,18 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-func getUserId(emails map[string]bool) error {
-	for k, _ := range emails {
-		if _, ok := UserIdDir.Load(k); ok {
-			delete(emails, k)
+func getUserId(h *model.PRHook) error {
+	// record all relevant persons
+	emails := make(map[string]bool)
+	if _, ok := UserIdDir.Load(h.Sender.Email); !ok {
+		emails[h.Sender.Email] = true
+	}
+	if _, ok := UserIdDir.Load(h.PullRequest.User.Email); !ok {
+		emails[h.PullRequest.User.Email] = true
+	}
+	for _, v := range h.PullRequest.Assignees {
+		if _, ok := UserIdDir.Load(v.Email); !ok {
+			emails[v.Email] = true
 		}
 	}
 	if emails == nil || len(emails) == 0 {
