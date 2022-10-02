@@ -182,7 +182,6 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
 	_, _, _ = Send(msg)
-	fmt.Println(1)
 }
 
 func getUserId(emails map[string]bool) error {
@@ -234,7 +233,6 @@ func getUserId(emails map[string]bool) error {
 		return err
 	}
 	if resp.Data != nil {
-		fmt.Println(resp.Data)
 		v := resp.Data["email_users"].(map[string]interface{})
 		for kk, vv := range v {
 			vk := vv.([]interface{})
