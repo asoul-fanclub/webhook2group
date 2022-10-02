@@ -177,7 +177,7 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 		logger.Fatalf("%v", err.Error())
 	}
 	// solve data
-	msg := solvePullRequestData(h)
+	msg := solvePullRequestAssignData(h)
 	msg.ReceiveId = chat
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
@@ -280,6 +280,57 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 			line = append(line, at)
 		}
 	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.PullRequest.Title)
+	return p
+}
+
+func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
+	line = append(line, a)
+	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n")
+	line = append(line, tx)
+	t := NewText("PullRequest By ")
+	line = append(line, t)
+	id, _ := UserIdDir.Load(h.PullRequest.User.Email)
+	at := NewAT(id.(string))
+	line = append(line, at)
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, _ = UserIdDir.Load(h.Sender.Email)
+	at = NewAT(id.(string))
+	line = append(line, at)
+	if h.PullRequest.Body != "" {
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.PullRequest.Body +
+			"\n--------------------------------------------------------------\n")
+		line = append(line, t)
+	}
+	if h.Action == "assigned" {
+		if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("assign this PR to you")
+			line = append(line, t)
+			id, _ = UserIdDir.Load(h.PullRequest.Assignees[len(h.PullRequest.Assignees)-1].Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText(", plz take a look")
+			line = append(line, t)
+		}
+	} else {
+		if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("unassigned this PR for someone")
+			line = append(line, t)
+		}
+	}
+
 	p.AppendZHContent(line)
 	p.SetZHTitle(h.PullRequest.Title)
 	return p
