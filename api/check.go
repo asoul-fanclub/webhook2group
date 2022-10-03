@@ -319,6 +319,8 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
+	t = NewText("\n")
+	line = append(line, t)
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
@@ -355,9 +357,9 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 	var at AT
 	a := NewA("[Push-"+h.Repository.Name+"]", h.CompareUrl)
 	line = append(line, a)
-	tx := NewText("\n(Head [" + h.Ref + "])\n")
+	tx := NewText("\n(Head [" + h.Ref + "])")
 	line = append(line, tx)
-	t := NewText("Push By ")
+	t := NewText("\nPush By ")
 	line = append(line, t)
 	id, ok := UserIdDir.Load(h.Pusher.Email)
 	if ok {
@@ -387,6 +389,8 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
+	t = NewText("\n")
+	line = append(line, t)
 	if h.HeadCommit.Message != "" {
 		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
 			h.HeadCommit.Message +
@@ -406,9 +410,9 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 	var at AT
 	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
 	line = append(line, a)
-	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])\n")
+	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])")
 	line = append(line, tx)
-	t = NewText("PullRequest By ")
+	t = NewText("\nPullRequest By ")
 	line = append(line, t)
 	id, ok := UserIdDir.Load(h.PullRequest.User.Email)
 	if ok {
@@ -438,9 +442,10 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-
+	t = NewText("\n")
+	line = append(line, t)
 	if h.PullRequest.Body != "" {
-		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+		t = NewText("Content: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
 			"\n--------------------------------------------------------------\n")
 		line = append(line, t)
