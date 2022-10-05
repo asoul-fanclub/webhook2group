@@ -94,7 +94,7 @@ func StartCheck(c *app.RequestContext) {
 	// assign request
 	switch string(c.GetHeader(GiteaHeaderEventType)) {
 	case Push:
-		// push into repository or branch created
+		// push to repository
 		var h model.RepoHook
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
@@ -103,8 +103,8 @@ func StartCheck(c *app.RequestContext) {
 		go startCheckPush(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{Push})
 	case PullRequest:
+		// open/close/reopen the pull_request
 		var h model.PRHook
-
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
@@ -113,8 +113,8 @@ func StartCheck(c *app.RequestContext) {
 		go startCheckPR(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{PullRequest})
 	case PullRequestAssign:
+		// assign the pr, request someone to review
 		var h model.PRHook
-
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
@@ -122,8 +122,10 @@ func StartCheck(c *app.RequestContext) {
 		go startCheckAssignPR(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{PullRequestAssign})
 	case IssueComment:
+		// comment the issue
 		fmt.Println(IssueComment)
 	case Issues:
+		// open/close/reopen the issue
 		var h model.IssueHook
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
@@ -132,15 +134,17 @@ func StartCheck(c *app.RequestContext) {
 		go startCheckIssue(&h, chat)
 		c.JSON(http.StatusCreated, localMsg{Issues})
 	case PullRequestComment:
+		// comment the pr
 		fmt.Println(PullRequestComment)
 	case PullRequestRejected:
+		// reject the request of review
 		fmt.Println(PullRequestRejected)
 	case PullRequestApproved:
+		// approve the request of review
 		fmt.Println(PullRequestApproved)
 	case IssuesAssign:
+		// assign the issue
 		fmt.Println(IssuesAssign)
-	case BranchCreate:
-		fmt.Println(BranchCreate)
 	default:
 		c.JSON(404, localMsg{"event not supported"})
 	}

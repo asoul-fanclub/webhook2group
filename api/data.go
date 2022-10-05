@@ -9,7 +9,6 @@ const (
 	PullRequestRejected  = "pull_request_rejected"
 	PullRequestApproved  = "pull_request_approved"
 	PullRequest          = "pull_request"
-	BranchCreate         = "create"
 	Issues               = "issues"
 	IssuesAssign         = "issue_assign"
 	GiteaData            = "gitea_data"
