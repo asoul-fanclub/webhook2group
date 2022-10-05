@@ -124,7 +124,13 @@ func StartCheck(c *app.RequestContext) {
 	case IssueComment:
 		fmt.Println(IssueComment)
 	case Issues:
-		fmt.Println(Issues)
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckIssue(&h, chat)
+		c.JSON(http.StatusCreated, localMsg{Issues})
 	case PullRequestComment:
 		fmt.Println(PullRequestComment)
 	case PullRequestRejected:
@@ -140,7 +146,7 @@ func StartCheck(c *app.RequestContext) {
 	}
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理pr操作事件
 func startCheckPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -156,7 +162,7 @@ func startCheckPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理pr指派事件
 func startCheckAssignPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -172,7 +178,7 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理推送事件
 func startCheckPush(h *model.RepoHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -186,6 +192,33 @@ func startCheckPush(h *model.RepoHook, chat string) {
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
 	_, _, _ = Send(msg)
+}
+
+func startCheckIssue(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solveIssueData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
+func getUserIdWithIssueHook(h *model.IssueHook) error {
+	// record all relevant persons
+	emails := make(map[string]bool)
+	if _, ok := UserIdDir.Load(h.Sender.Email); !ok {
+		emails[h.Sender.Email] = true
+	}
+	if _, ok := UserIdDir.Load(h.Issue.User.Email); !ok {
+		emails[h.Issue.User.Email] = true
+	}
+	for _, v := range h.Issue.Assignees {
+		if _, ok := UserIdDir.Load(v.Email); !ok {
+			emails[v.Email] = true
+		}
+	}
+	return getUserId(emails)
 }
 
 func getUserIdWithPRHook(h *model.PRHook) error {
@@ -488,7 +521,76 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 	return p
 }
 
-// Send send message
+func solveIssueData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\n")
+	line = append(line, t)
+	if h.Issue.Body != "" {
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.Issue.Body +
+			"\n--------------------------------------------------------------\n")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("Assignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+// Send message
 func Send(message Message) (string, *Response, error) {
 	res := &Response{}
 
