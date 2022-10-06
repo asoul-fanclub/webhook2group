@@ -572,7 +572,9 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
-	if h.Action == "\nassigned" {
+	t = NewText("\n")
+	line = append(line, t)
+	if h.Action == "assigned" {
 		if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
 			id, _ = UserIdDir.Load(h.Sender.Email)
 			at = NewAT(id.(string))
@@ -708,7 +710,9 @@ func solveIssueAssignData(h *model.IssueHook) *PostMessage {
 			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
-	if h.Action == "\nassigned" {
+	t = NewText("\n")
+	line = append(line, t)
+	if h.Action == "assigned" {
 		if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
 			id, _ = UserIdDir.Load(h.Sender.Email)
 			at = NewAT(id.(string))
