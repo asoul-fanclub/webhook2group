@@ -7,6 +7,7 @@ type PRHook struct {
 	Repository  *Repository  `json:"repository"`
 	Sender      *User        `json:"sender"`
 	Review      *Review      `json:"review"`
+	Comment     *Comment     `json:"comment"`
 }
 
 type PullRequest struct {

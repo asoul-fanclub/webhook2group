@@ -141,7 +141,13 @@ func StartCheck(c *app.RequestContext) {
 		c.JSON(http.StatusOK, localMsg{Issues})
 	case PullRequestComment:
 		// comment the pr
-		fmt.Println(PullRequestComment)
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckPullRequestComment(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestComment})
 	case PullRequestRejected:
 		// reject the request of review
 		var h model.PRHook
@@ -151,7 +157,6 @@ func StartCheck(c *app.RequestContext) {
 		}
 		go startCheckReviewPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestRejected})
-		fmt.Println(PullRequestRejected)
 	case PullRequestApproved:
 		// approve the request of review
 		var h model.PRHook
@@ -171,7 +176,7 @@ func StartCheck(c *app.RequestContext) {
 		go startCheckIssueAssign(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssuesAssign})
 	default:
-		c.JSON(404, localMsg{"event not supported"})
+		c.JSON(http.StatusNotFound, localMsg{"event not supported"})
 	}
 }
 
@@ -273,6 +278,17 @@ func startCheckIssueComment(h *model.IssueHook, chat string) {
 		logger.Fatalf("%v", err.Error())
 	}
 	msg := solveIssueCommentData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
+// 处理issue评论事件
+func startCheckPullRequestComment(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solvePullRequestCommentData(h)
 	msg.ReceiveId = chat
 	_, _, _ = Send(msg)
 }
@@ -805,6 +821,73 @@ func solveIssueCommentData(h *model.IssueHook) *PostMessage {
 	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
 	line = append(line, a)
 	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Comment.Body != "" {
+		t = NewText("\nComment: \n--------------------------------------------------------------\n" +
+			h.Comment.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("\nAssignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+func solvePullRequestCommentData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.Url)
+	line = append(line, a)
+	t = NewText("\nPullRequest By ")
 	line = append(line, t)
 	id, ok := UserIdDir.Load(h.Issue.User.Email)
 	if ok {
