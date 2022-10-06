@@ -128,7 +128,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCHeckIssueComment(&h, chat)
+		go startCheckIssueComment(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssueComment})
 	case Issues:
 		// open/close/reopen the issue
@@ -144,10 +144,23 @@ func StartCheck(c *app.RequestContext) {
 		fmt.Println(PullRequestComment)
 	case PullRequestRejected:
 		// reject the request of review
+		var h model.PRHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckReviewPR(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestRejected})
 		fmt.Println(PullRequestRejected)
 	case PullRequestApproved:
 		// approve the request of review
-		fmt.Println(PullRequestApproved)
+		var h model.PRHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckReviewPR(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestApproved})
 	case IssuesAssign:
 		// assign the issue
 		var h model.IssueHook
@@ -194,7 +207,23 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理pr指派事件
+// 处理pr review事件
+func startCheckReviewPR(h *model.PRHook, chat string) {
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	err := getUserIdWithPRHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	// solve data
+	msg := solvePullRequestReviewData(h)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+// 处理issue指派事件
 func startCheckIssueAssign(h *model.IssueHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -226,6 +255,7 @@ func startCheckPush(h *model.RepoHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
+// 处理Issue操作事件
 func startCheckIssue(h *model.IssueHook, chat string) {
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
@@ -236,7 +266,8 @@ func startCheckIssue(h *model.IssueHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-func startCHeckIssueComment(h *model.IssueHook, chat string) {
+// 处理issue评论事件
+func startCheckIssueComment(h *model.IssueHook, chat string) {
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
@@ -558,6 +589,60 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 		}
 	}
 
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.PullRequest.Title)
+	return p
+}
+
+func solvePullRequestReviewData(h *model.PRHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var id any
+	var t Text
+	var at AT
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
+	line = append(line, a)
+	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])")
+	line = append(line, tx)
+	t = NewText("\nPullRequest By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.PullRequest.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.PullRequest.User.FullName == "" {
+			t = NewText(h.PullRequest.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.PullRequest.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	s := "\nYour PR was "
+	if h.Review.Type == "pull_request_review_rejected" {
+		s = s + "rejected"
+	} else {
+		s = s + "approved"
+	}
+	s = s + " , plz take a look"
+	t = NewText(s)
+	line = append(line, t)
 	p.AppendZHContent(line)
 	p.SetZHTitle(h.PullRequest.Title)
 	return p
