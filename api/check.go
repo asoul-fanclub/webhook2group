@@ -123,7 +123,13 @@ func StartCheck(c *app.RequestContext) {
 		c.JSON(http.StatusOK, localMsg{PullRequestAssign})
 	case IssueComment:
 		// comment the issue
-		fmt.Println(IssueComment)
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCHeckIssueComment(&h, chat)
+		c.JSON(http.StatusOK, localMsg{IssueComment})
 	case Issues:
 		// open/close/reopen the issue
 		var h model.IssueHook
@@ -208,6 +214,16 @@ func startCheckIssue(h *model.IssueHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
+func startCHeckIssueComment(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solveIssueCommentData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
 func getUserIdWithIssueHook(h *model.IssueHook) error {
 	// record all relevant persons
 	emails := make(map[string]bool)
@@ -216,6 +232,11 @@ func getUserIdWithIssueHook(h *model.IssueHook) error {
 	}
 	if _, ok := UserIdDir.Load(h.Issue.User.Email); !ok {
 		emails[h.Issue.User.Email] = true
+	}
+	if h.Comment != nil {
+		if _, ok := UserIdDir.Load(h.Comment.User.Email); !ok {
+			emails[h.Comment.User.Email] = true
+		}
 	}
 	for _, v := range h.Issue.Assignees {
 		if _, ok := UserIdDir.Load(v.Email); !ok {
@@ -356,16 +377,15 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
 	line = append(line, t)
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
 	if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
-		t = NewText("Assignees: ")
+		t = NewText("\nAssignees: ")
 		line = append(line, t)
 		for _, v := range h.PullRequest.Assignees {
 			id, ok = UserIdDir.Load(v.Email)
@@ -426,12 +446,10 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
-	line = append(line, t)
 	if h.HeadCommit.Message != "" {
 		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
 			h.HeadCommit.Message +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
 	p.AppendZHContent(line)
@@ -479,15 +497,13 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
-	line = append(line, t)
 	if h.PullRequest.Body != "" {
-		t = NewText("Content: \n--------------------------------------------------------------\n" +
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
-	if h.Action == "assigned" {
+	if h.Action == "\nassigned" {
 		if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
 			id, _ = UserIdDir.Load(h.Sender.Email)
 			at = NewAT(id.(string))
@@ -530,7 +546,7 @@ func solveIssueData(h *model.IssueHook) *PostMessage {
 	var line []PostItem
 	var at AT
 	var t Text
-	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
 	line = append(line, a)
 	t = NewText("\nIssue By ")
 	line = append(line, t)
@@ -562,16 +578,81 @@ func solveIssueData(h *model.IssueHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
-	line = append(line, t)
 	if h.Issue.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.Issue.Body +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
 	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
-		t = NewText("Assignees: ")
+		t = NewText("\nAssignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+func solveIssueCommentData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Comment.Body != "" {
+		t = NewText("\nComment: \n--------------------------------------------------------------\n" +
+			h.Comment.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("\nAssignees: ")
 		line = append(line, t)
 		for _, v := range h.Issue.Assignees {
 			id, ok = UserIdDir.Load(v.Email)

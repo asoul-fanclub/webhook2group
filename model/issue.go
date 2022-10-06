@@ -6,6 +6,15 @@ type IssueHook struct {
 	Issue      *Issue      `json:"issue"`
 	Repository *Repository `json:"repository"`
 	Sender     *User       `json:"sender"`
+	Comment    *Comment    `json:"comment"`
+}
+
+type Comment struct {
+	Id       int    `json:"id"`
+	HtmlUrl  string `json:"html_url"`
+	IssueUrl string `json:"issue_url"`
+	User     *User  `json:"user"`
+	Body     string `json:"body"`
 }
 
 type Issue struct {
