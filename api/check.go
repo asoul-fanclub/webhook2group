@@ -150,7 +150,13 @@ func StartCheck(c *app.RequestContext) {
 		fmt.Println(PullRequestApproved)
 	case IssuesAssign:
 		// assign the issue
-		fmt.Println(IssuesAssign)
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckIssueAssign(&h, chat)
+		c.JSON(http.StatusOK, localMsg{IssuesAssign})
 	default:
 		c.JSON(404, localMsg{"event not supported"})
 	}
@@ -182,6 +188,22 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	}
 	// solve data
 	msg := solvePullRequestAssignData(h)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+// 处理pr指派事件
+func startCheckIssueAssign(h *model.IssueHook, chat string) {
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	// solve data
+	msg := solveIssueAssignData(h)
 	msg.ReceiveId = chat
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
@@ -538,6 +560,88 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 
 	p.AppendZHContent(line)
 	p.SetZHTitle(h.PullRequest.Title)
+	return p
+}
+
+func solveIssueAssignData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var id any
+	var t Text
+	var at AT
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Issue.Body != "" {
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.Issue.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Action == "\nassigned" {
+		if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("assign this PR to you")
+			line = append(line, t)
+			id, ok = UserIdDir.Load(h.Issue.Assignees[len(h.Issue.Assignees)-1].Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if h.Issue.Assignees[len(h.Issue.Assignees)-1].FullName == "" {
+					t = NewText(h.Issue.Assignees[len(h.Issue.Assignees)-1].Username)
+					line = append(line, t)
+				} else {
+					t = NewText(h.Issue.Assignees[len(h.Issue.Assignees)-1].FullName)
+					line = append(line, t)
+				}
+			}
+			t = NewText(", plz take a look")
+			line = append(line, t)
+		}
+	} else {
+		if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("unassigned this PR for someone")
+			line = append(line, t)
+		}
+	}
+
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
 	return p
 }
 
