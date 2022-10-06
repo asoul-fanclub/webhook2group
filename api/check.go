@@ -101,7 +101,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		go startCheckPush(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{Push})
+		c.JSON(http.StatusOK, localMsg{Push})
 	case PullRequest:
 		// open/close/reopen the pull_request
 		var h model.PRHook
@@ -111,7 +111,7 @@ func StartCheck(c *app.RequestContext) {
 		}
 		// solve the PR request
 		go startCheckPR(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{PullRequest})
+		c.JSON(http.StatusOK, localMsg{PullRequest})
 	case PullRequestAssign:
 		// assign the pr, request someone to review
 		var h model.PRHook
@@ -120,7 +120,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		go startCheckAssignPR(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{PullRequestAssign})
+		c.JSON(http.StatusOK, localMsg{PullRequestAssign})
 	case IssueComment:
 		// comment the issue
 		fmt.Println(IssueComment)
@@ -132,7 +132,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		go startCheckIssue(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{Issues})
+		c.JSON(http.StatusOK, localMsg{Issues})
 	case PullRequestComment:
 		// comment the pr
 		fmt.Println(PullRequestComment)
