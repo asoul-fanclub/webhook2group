@@ -6,6 +6,8 @@ type PRHook struct {
 	PullRequest *PullRequest `json:"pull_request"`
 	Repository  *Repository  `json:"repository"`
 	Sender      *User        `json:"sender"`
+	Review      *Review      `json:"review"`
+	Comment     *Comment     `json:"comment"`
 }
 
 type PullRequest struct {
@@ -33,4 +35,9 @@ type User struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
 	Name     string `json:"name"`
+}
+
+type Review struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
 }

@@ -94,53 +94,93 @@ func StartCheck(c *app.RequestContext) {
 	// assign request
 	switch string(c.GetHeader(GiteaHeaderEventType)) {
 	case Push:
-		// push into repository or branch created
+		// push to repository
 		var h model.RepoHook
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
 		go startCheckPush(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{Push})
+		c.JSON(http.StatusOK, localMsg{Push})
 	case PullRequest:
+		// open/close/reopen the pull_request
 		var h model.PRHook
-
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
 		// solve the PR request
 		go startCheckPR(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{PullRequest})
+		c.JSON(http.StatusOK, localMsg{PullRequest})
 	case PullRequestAssign:
+		// assign the pr, request someone to review
 		var h model.PRHook
-
 		if err := c.BindAndValidate(&h); err != nil {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
 		go startCheckAssignPR(&h, chat)
-		c.JSON(http.StatusCreated, localMsg{PullRequestAssign})
+		c.JSON(http.StatusOK, localMsg{PullRequestAssign})
 	case IssueComment:
-		fmt.Println(IssueComment)
+		// comment the issue
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckIssueComment(&h, chat)
+		c.JSON(http.StatusOK, localMsg{IssueComment})
 	case Issues:
-		fmt.Println(Issues)
+		// open/close/reopen the issue
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckIssue(&h, chat)
+		c.JSON(http.StatusOK, localMsg{Issues})
 	case PullRequestComment:
-		fmt.Println(PullRequestComment)
+		// comment the pr
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckPullRequestComment(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestComment})
 	case PullRequestRejected:
-		fmt.Println(PullRequestRejected)
+		// reject the request of review
+		var h model.PRHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckReviewPR(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestRejected})
 	case PullRequestApproved:
-		fmt.Println(PullRequestApproved)
+		// approve the request of review
+		var h model.PRHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckReviewPR(&h, chat)
+		c.JSON(http.StatusOK, localMsg{PullRequestApproved})
 	case IssuesAssign:
-		fmt.Println(IssuesAssign)
-	case BranchCreate:
-		fmt.Println(BranchCreate)
+		// assign the issue
+		var h model.IssueHook
+		if err := c.BindAndValidate(&h); err != nil {
+			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
+			return
+		}
+		go startCheckIssueAssign(&h, chat)
+		c.JSON(http.StatusOK, localMsg{IssuesAssign})
 	default:
-		c.JSON(404, localMsg{"event not supported"})
+		c.JSON(http.StatusNotFound, localMsg{"event not supported"})
 	}
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理pr操作事件
 func startCheckPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -156,7 +196,7 @@ func startCheckPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理pr指派事件
 func startCheckAssignPR(h *model.PRHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -172,7 +212,39 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理gitea传来的数据，并向对应的group发送消息
+// 处理pr review事件
+func startCheckReviewPR(h *model.PRHook, chat string) {
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	err := getUserIdWithPRHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	// solve data
+	msg := solvePullRequestReviewData(h)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+// 处理issue指派事件
+func startCheckIssueAssign(h *model.IssueHook, chat string) {
+	// get user_id
+	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	// solve data
+	msg := solveIssueAssignData(h)
+	msg.ReceiveId = chat
+	// send msg
+	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
+	_, _, _ = Send(msg)
+}
+
+// 处理推送事件
 func startCheckPush(h *model.RepoHook, chat string) {
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
@@ -186,6 +258,61 @@ func startCheckPush(h *model.RepoHook, chat string) {
 	// send msg
 	// https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/im-v1/message/create
 	_, _, _ = Send(msg)
+}
+
+// 处理Issue操作事件
+func startCheckIssue(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solveIssueData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
+// 处理issue评论事件
+func startCheckIssueComment(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solveIssueCommentData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
+// 处理issue评论事件
+func startCheckPullRequestComment(h *model.IssueHook, chat string) {
+	err := getUserIdWithIssueHook(h)
+	if err != nil {
+		logger.Fatalf("%v", err.Error())
+	}
+	msg := solvePullRequestCommentData(h)
+	msg.ReceiveId = chat
+	_, _, _ = Send(msg)
+}
+
+func getUserIdWithIssueHook(h *model.IssueHook) error {
+	// record all relevant persons
+	emails := make(map[string]bool)
+	if _, ok := UserIdDir.Load(h.Sender.Email); !ok {
+		emails[h.Sender.Email] = true
+	}
+	if _, ok := UserIdDir.Load(h.Issue.User.Email); !ok {
+		emails[h.Issue.User.Email] = true
+	}
+	if h.Comment != nil {
+		if _, ok := UserIdDir.Load(h.Comment.User.Email); !ok {
+			emails[h.Comment.User.Email] = true
+		}
+	}
+	for _, v := range h.Issue.Assignees {
+		if _, ok := UserIdDir.Load(v.Email); !ok {
+			emails[v.Email] = true
+		}
+	}
+	return getUserId(emails)
 }
 
 func getUserIdWithPRHook(h *model.PRHook) error {
@@ -319,16 +446,15 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
 	line = append(line, t)
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
 	if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
-		t = NewText("Assignees: ")
+		t = NewText("\nAssignees: ")
 		line = append(line, t)
 		for _, v := range h.PullRequest.Assignees {
 			id, ok = UserIdDir.Load(v.Email)
@@ -389,12 +515,10 @@ func solvePushData(h *model.RepoHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
-	line = append(line, t)
 	if h.HeadCommit.Message != "" {
 		t = NewText("\nCommit Content: \n--------------------------------------------------------------\n" +
 			h.HeadCommit.Message +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
 	p.AppendZHContent(line)
@@ -442,14 +566,14 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	t = NewText("\n")
-	line = append(line, t)
 	if h.PullRequest.Body != "" {
-		t = NewText("Content: \n--------------------------------------------------------------\n" +
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
-			"\n--------------------------------------------------------------\n")
+			"\n--------------------------------------------------------------")
 		line = append(line, t)
 	}
+	t = NewText("\n")
+	line = append(line, t)
 	if h.Action == "assigned" {
 		if h.PullRequest.Assignees != nil && len(h.PullRequest.Assignees) != 0 {
 			id, _ = UserIdDir.Load(h.Sender.Email)
@@ -488,7 +612,346 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 	return p
 }
 
-// Send send message
+func solvePullRequestReviewData(h *model.PRHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var id any
+	var t Text
+	var at AT
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.PullRequest.Number, 10)+"] action: "+h.Action, h.PullRequest.Url)
+	line = append(line, a)
+	tx := NewText("\n(Head [" + h.PullRequest.Head.Ref + "] merge to Base [" + h.PullRequest.Base.Ref + "])")
+	line = append(line, tx)
+	t = NewText("\nPullRequest By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.PullRequest.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.PullRequest.User.FullName == "" {
+			t = NewText(h.PullRequest.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.PullRequest.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	s := "\nYour PR was "
+	if h.Review.Type == "pull_request_review_rejected" {
+		s = s + "rejected"
+	} else {
+		s = s + "approved"
+	}
+	s = s + " , plz take a look"
+	t = NewText(s)
+	line = append(line, t)
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.PullRequest.Title)
+	return p
+}
+
+func solveIssueAssignData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var id any
+	var t Text
+	var at AT
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Issue.Body != "" {
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.Issue.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	t = NewText("\n")
+	line = append(line, t)
+	if h.Action == "assigned" {
+		if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("assign this PR to you")
+			line = append(line, t)
+			id, ok = UserIdDir.Load(h.Issue.Assignees[len(h.Issue.Assignees)-1].Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if h.Issue.Assignees[len(h.Issue.Assignees)-1].FullName == "" {
+					t = NewText(h.Issue.Assignees[len(h.Issue.Assignees)-1].Username)
+					line = append(line, t)
+				} else {
+					t = NewText(h.Issue.Assignees[len(h.Issue.Assignees)-1].FullName)
+					line = append(line, t)
+				}
+			}
+			t = NewText(", plz take a look")
+			line = append(line, t)
+		}
+	} else {
+		if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+			id, _ = UserIdDir.Load(h.Sender.Email)
+			at = NewAT(id.(string))
+			line = append(line, at)
+			t = NewText("unassigned this PR for someone")
+			line = append(line, t)
+		}
+	}
+
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+func solveIssueData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Issue.Body != "" {
+		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
+			h.Issue.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("\nAssignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+func solveIssueCommentData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[Issue-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
+	line = append(line, a)
+	t = NewText("\nIssue By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Comment.Body != "" {
+		t = NewText("\nComment: \n--------------------------------------------------------------\n" +
+			h.Comment.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("\nAssignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+func solvePullRequestCommentData(h *model.IssueHook) *PostMessage {
+	p := NewPostMessage()
+	var line []PostItem
+	var at AT
+	var t Text
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.Url)
+	line = append(line, a)
+	t = NewText("\nPullRequest By ")
+	line = append(line, t)
+	id, ok := UserIdDir.Load(h.Issue.User.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Issue.User.FullName == "" {
+			t = NewText(h.Issue.User.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Issue.User.FullName)
+			line = append(line, t)
+		}
+	}
+	t = NewText("\nOperator: ")
+	line = append(line, t)
+	id, ok = UserIdDir.Load(h.Sender.Email)
+	if ok {
+		at = NewAT(id.(string))
+		line = append(line, at)
+	} else {
+		if h.Sender.FullName == "" {
+			t = NewText(h.Sender.Username)
+			line = append(line, t)
+		} else {
+			t = NewText(h.Sender.FullName)
+			line = append(line, t)
+		}
+	}
+	if h.Comment.Body != "" {
+		t = NewText("\nComment: \n--------------------------------------------------------------\n" +
+			h.Comment.Body +
+			"\n--------------------------------------------------------------")
+		line = append(line, t)
+	}
+	if h.Issue.Assignees != nil && len(h.Issue.Assignees) != 0 {
+		t = NewText("\nAssignees: ")
+		line = append(line, t)
+		for _, v := range h.Issue.Assignees {
+			id, ok = UserIdDir.Load(v.Email)
+			if ok {
+				at = NewAT(id.(string))
+				line = append(line, at)
+			} else {
+				if v.FullName == "" {
+					t = NewText(v.Username + " ")
+					line = append(line, t)
+				} else {
+					t = NewText(v.FullName + " ")
+					line = append(line, t)
+				}
+			}
+		}
+	}
+	p.AppendZHContent(line)
+	p.SetZHTitle(h.Issue.Title)
+	return p
+}
+
+// Send message
 func Send(message Message) (string, *Response, error) {
 	res := &Response{}
 
