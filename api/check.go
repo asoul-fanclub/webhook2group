@@ -446,7 +446,6 @@ func solvePullRequestData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	line = append(line, t)
 	if h.PullRequest.Body != "" {
 		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
 			h.PullRequest.Body +
