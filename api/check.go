@@ -565,12 +565,6 @@ func solvePullRequestAssignData(h *model.PRHook) *PostMessage {
 			line = append(line, t)
 		}
 	}
-	if h.PullRequest.Body != "" {
-		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
-			h.PullRequest.Body +
-			"\n--------------------------------------------------------------")
-		line = append(line, t)
-	}
 	t = NewText("\n")
 	line = append(line, t)
 	if h.Action == "assigned" {
@@ -702,12 +696,6 @@ func solveIssueAssignData(h *model.IssueHook) *PostMessage {
 			t = NewText(h.Sender.FullName)
 			line = append(line, t)
 		}
-	}
-	if h.Issue.Body != "" {
-		t = NewText("\nContent: \n--------------------------------------------------------------\n" +
-			h.Issue.Body +
-			"\n--------------------------------------------------------------")
-		line = append(line, t)
 	}
 	t = NewText("\n")
 	line = append(line, t)
