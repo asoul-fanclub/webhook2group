@@ -282,7 +282,7 @@ func startCheckIssueComment(h *model.IssueHook, chat string) {
 	_, _, _ = Send(msg)
 }
 
-// 处理issue评论事件
+// 处理pull_request评论事件
 func startCheckPullRequestComment(h *model.IssueHook, chat string) {
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
@@ -876,7 +876,7 @@ func solvePullRequestCommentData(h *model.IssueHook) *PostMessage {
 	var line []PostItem
 	var at AT
 	var t Text
-	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.Url)
+	a := NewA("[PullRequest-"+h.Repository.Name+" #"+strconv.FormatInt(h.Issue.Number, 10)+"] action: "+h.Action, h.Issue.HtmlUrl)
 	line = append(line, a)
 	t = NewText("\nPullRequest By ")
 	line = append(line, t)
