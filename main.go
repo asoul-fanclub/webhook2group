@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
@@ -16,6 +17,11 @@ import (
 // 2. 整个程序的作用是获取gitea的数据，进行解析获取email，路径中携带chat_id。根据email获取group下的id，结合@群组成员发送消息
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// 初始化配置文件
 	if err := config.InitConfig(); err != nil {
 		log.Fatal(err)
