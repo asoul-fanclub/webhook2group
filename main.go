@@ -38,7 +38,7 @@ func main() {
 		server.WithHostPorts(config.Config.Server.Host))
 	// webhook api
 	h.POST("/webhook/:chat", func(c context.Context, ctx *app.RequestContext) {
-		api.StartCheck(ctx)
+		go api.StartCheck(ctx)
 	})
 
 	h.GET("/ping", func(c context.Context, ctx *app.RequestContext) {

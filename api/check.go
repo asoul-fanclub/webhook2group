@@ -34,6 +34,12 @@ type localMsg struct {
 
 // StartCheck 根据event_type分发请求
 func StartCheck(c *app.RequestContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
+
 	// missing event_type
 	if c.GetHeader(GiteaHeaderEventType) == nil || len(c.GetHeader(GiteaHeaderEventType)) == 0 {
 		c.JSON(http.StatusNotFound, localMsg{"missing header"})
@@ -100,7 +106,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckPush(&h, chat)
+		startCheckPush(&h, chat)
 		c.JSON(http.StatusOK, localMsg{Push})
 	case PullRequest:
 		// open/close/reopen the pull_request
@@ -110,7 +116,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		// solve the PR request
-		go startCheckPR(&h, chat)
+		startCheckPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequest})
 	case PullRequestAssign:
 		// assign the pr, request someone to review
@@ -119,7 +125,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckAssignPR(&h, chat)
+		startCheckAssignPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestAssign})
 	case IssueComment:
 		// comment the issue
@@ -128,7 +134,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckIssueComment(&h, chat)
+		startCheckIssueComment(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssueComment})
 	case Issues:
 		// open/close/reopen the issue
@@ -137,7 +143,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckIssue(&h, chat)
+		startCheckIssue(&h, chat)
 		c.JSON(http.StatusOK, localMsg{Issues})
 	case PullRequestComment:
 		// comment the pr
@@ -146,7 +152,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckPullRequestComment(&h, chat)
+		startCheckPullRequestComment(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestComment})
 	case PullRequestRejected:
 		// reject the request of review
@@ -155,7 +161,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckReviewPR(&h, chat)
+		startCheckReviewPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestRejected})
 	case PullRequestApproved:
 		// approve the request of review
@@ -164,7 +170,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckReviewPR(&h, chat)
+		startCheckReviewPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestApproved})
 	case IssuesAssign:
 		// assign the issue
@@ -173,7 +179,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		go startCheckIssueAssign(&h, chat)
+		startCheckIssueAssign(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssuesAssign})
 	default:
 		c.JSON(http.StatusNotFound, localMsg{"event not supported"})
