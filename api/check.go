@@ -34,12 +34,6 @@ type localMsg struct {
 
 // StartCheck 根据event_type分发请求
 func StartCheck(c *app.RequestContext) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("panic: %s\n", r)
-		}
-	}()
-
 	// missing event_type
 	if c.GetHeader(GiteaHeaderEventType) == nil || len(c.GetHeader(GiteaHeaderEventType)) == 0 {
 		c.JSON(http.StatusNotFound, localMsg{"missing header"})
@@ -106,7 +100,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckPush(&h, chat)
+		go startCheckPush(&h, chat)
 		c.JSON(http.StatusOK, localMsg{Push})
 	case PullRequest:
 		// open/close/reopen the pull_request
@@ -116,7 +110,7 @@ func StartCheck(c *app.RequestContext) {
 			return
 		}
 		// solve the PR request
-		startCheckPR(&h, chat)
+		go startCheckPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequest})
 	case PullRequestAssign:
 		// assign the pr, request someone to review
@@ -125,7 +119,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckAssignPR(&h, chat)
+		go startCheckAssignPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestAssign})
 	case IssueComment:
 		// comment the issue
@@ -134,7 +128,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckIssueComment(&h, chat)
+		go startCheckIssueComment(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssueComment})
 	case Issues:
 		// open/close/reopen the issue
@@ -143,7 +137,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckIssue(&h, chat)
+		go startCheckIssue(&h, chat)
 		c.JSON(http.StatusOK, localMsg{Issues})
 	case PullRequestComment:
 		// comment the pr
@@ -152,7 +146,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckPullRequestComment(&h, chat)
+		go startCheckPullRequestComment(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestComment})
 	case PullRequestRejected:
 		// reject the request of review
@@ -161,7 +155,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckReviewPR(&h, chat)
+		go startCheckReviewPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestRejected})
 	case PullRequestApproved:
 		// approve the request of review
@@ -170,7 +164,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckReviewPR(&h, chat)
+		go startCheckReviewPR(&h, chat)
 		c.JSON(http.StatusOK, localMsg{PullRequestApproved})
 	case IssuesAssign:
 		// assign the issue
@@ -179,7 +173,7 @@ func StartCheck(c *app.RequestContext) {
 			c.JSON(http.StatusBadRequest, localMsg{err.Error()})
 			return
 		}
-		startCheckIssueAssign(&h, chat)
+		go startCheckIssueAssign(&h, chat)
 		c.JSON(http.StatusOK, localMsg{IssuesAssign})
 	default:
 		c.JSON(http.StatusNotFound, localMsg{"event not supported"})
@@ -188,6 +182,11 @@ func StartCheck(c *app.RequestContext) {
 
 // 处理pr操作事件
 func startCheckPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -204,6 +203,11 @@ func startCheckPR(h *model.PRHook, chat string) {
 
 // 处理pr指派事件
 func startCheckAssignPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -220,6 +224,11 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 
 // 处理pr review事件
 func startCheckReviewPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -236,6 +245,11 @@ func startCheckReviewPR(h *model.PRHook, chat string) {
 
 // 处理issue指派事件
 func startCheckIssueAssign(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithIssueHook(h)
@@ -252,6 +266,11 @@ func startCheckIssueAssign(h *model.IssueHook, chat string) {
 
 // 处理推送事件
 func startCheckPush(h *model.RepoHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithRepoHook(h)
@@ -268,6 +287,11 @@ func startCheckPush(h *model.RepoHook, chat string) {
 
 // 处理Issue操作事件
 func startCheckIssue(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
@@ -279,6 +303,11 @@ func startCheckIssue(h *model.IssueHook, chat string) {
 
 // 处理issue评论事件
 func startCheckIssueComment(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
@@ -290,6 +319,11 @@ func startCheckIssueComment(h *model.IssueHook, chat string) {
 
 // 处理pull_request评论事件
 func startCheckPullRequestComment(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
