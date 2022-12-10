@@ -182,6 +182,11 @@ func StartCheck(c *app.RequestContext) {
 
 // 处理pr操作事件
 func startCheckPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -198,6 +203,11 @@ func startCheckPR(h *model.PRHook, chat string) {
 
 // 处理pr指派事件
 func startCheckAssignPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -214,6 +224,11 @@ func startCheckAssignPR(h *model.PRHook, chat string) {
 
 // 处理pr review事件
 func startCheckReviewPR(h *model.PRHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithPRHook(h)
@@ -230,6 +245,11 @@ func startCheckReviewPR(h *model.PRHook, chat string) {
 
 // 处理issue指派事件
 func startCheckIssueAssign(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithIssueHook(h)
@@ -246,6 +266,11 @@ func startCheckIssueAssign(h *model.IssueHook, chat string) {
 
 // 处理推送事件
 func startCheckPush(h *model.RepoHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	// get user_id
 	// https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
 	err := getUserIdWithRepoHook(h)
@@ -262,6 +287,11 @@ func startCheckPush(h *model.RepoHook, chat string) {
 
 // 处理Issue操作事件
 func startCheckIssue(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
@@ -273,6 +303,11 @@ func startCheckIssue(h *model.IssueHook, chat string) {
 
 // 处理issue评论事件
 func startCheckIssueComment(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
@@ -284,6 +319,11 @@ func startCheckIssueComment(h *model.IssueHook, chat string) {
 
 // 处理pull_request评论事件
 func startCheckPullRequestComment(h *model.IssueHook, chat string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic: %s\n", r)
+		}
+	}()
 	err := getUserIdWithIssueHook(h)
 	if err != nil {
 		logger.Fatalf("%v", err.Error())
