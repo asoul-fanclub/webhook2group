@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 	"webhook2group/config"
 	"webhook2group/model"
 )
@@ -410,7 +411,7 @@ func getUserId(emails map[string]bool) error {
 	req.Header.SetContentTypeBytes([]byte("application/json; charset=utf-8"))
 	reqUrI := UserIdRequestURl + "?"
 	flag := true
-	for k, _ := range emails {
+	for k := range emails {
 		if flag {
 			reqUrI = reqUrI + "emails=" + k
 			flag = false
@@ -1006,7 +1007,9 @@ func Send(message Message) (string, *Response, error) {
 	reqString := string(reqBytes)
 
 	c := resty.New()
+
 	resp, err := c.SetTLSClientConfig(clientCfg).
+		SetTimeout(3*time.Second).
 		SetRetryCount(3).R().
 		SetBody(body).
 		SetHeader("Accept", "application/json").
