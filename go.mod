@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/bytedance/gopkg v0.0.0-20220413063733-65bf48ffb3a7
-	github.com/cloudwego/hertz v0.3.2
+	github.com/cloudwego/hertz v0.5.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/goccy/go-json v0.9.4
 	gopkg.in/ini.v1 v1.67.0
@@ -12,9 +12,9 @@ require (
 
 require (
 	github.com/bytedance/go-tagexpr/v2 v2.9.2 // indirect
-	github.com/bytedance/sonic v1.3.5 // indirect
+	github.com/bytedance/sonic v1.5.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06 // indirect
-	github.com/cloudwego/netpoll v0.2.6 // indirect
+	github.com/cloudwego/netpoll v0.3.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/henrylee2cn/ameda v1.4.10 // indirect

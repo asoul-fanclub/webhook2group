@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cloudwego/hertz/pkg/app/client"
+	"github.com/cloudwego/hertz/pkg/app/client/retry"
 	"github.com/cloudwego/hertz/pkg/network/standard"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -88,8 +89,16 @@ func GetAccessToken() (err error) {
 		InsecureSkipVerify: true,
 	}
 	c, err := client.NewClient(
+		client.WithDialTimeout(2*time.Second), // 设置超时3s
 		client.WithTLSConfig(clientCfg),
 		client.WithDialer(standard.NewDialer()),
+		client.WithRetryConfig(
+			retry.WithMaxAttemptTimes(3),            // 设置 Retry 配置的方式
+			retry.WithInitDelay(1*time.Millisecond), // 初始延迟
+			retry.WithMaxDelay(6*time.Millisecond),  // 最大延迟，不管重试多少次，策略如何，都不会超过这个延迟
+			retry.WithMaxJitter(2*time.Millisecond), // 延时的最大扰动，结合 RandomDelayPolicy 才会有效果
+			retry.WithDelayPolicy(retry.CombineDelay(retry.FixedDelayPolicy, retry.BackOffDelayPolicy, retry.RandomDelayPolicy)),
+		),
 	)
 	if err != nil {
 		return
